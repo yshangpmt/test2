@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weather Information</title>
+  <!-- Moment.js library for date formatting -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+  <!-- Chart.js library for charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 20px auto;
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    .header {
+      background-color: #4CAF50;
+      color: #fff;
+      text-align: center;
+      padding: 10px 0;
+      margin-bottom: 20px;
+    }
+    .content {
+      padding: 20px;
+    }
+    .weather-section {
+      margin-bottom: 20px;
+      padding: 15px;
+      border-radius: 8px;
+      background-color: #f5f5f5;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .weather-section h2 {
+      margin-top: 0;
+      font-size: 24px;
+      color: #333;
+    }
+    .weather-info p {
+      margin: 5px 0;
+      font-size: 18px;
+      color: #555;
+    }
+    .chart-container {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 8px;
+      background-color: #f5f5f5;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    canvas {
+      max-width: 100%;
+      height: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Weather Information for Alor Setar, Malaysia</h1>
+    </div>
+
+    <div class="content">
+      <div class="weather-section">
+        <h2>Current Weather</h2>
+        <div id="weather-info">
+          <p>Loading...</p>
+        </div>
+      </div>
+
+      <div class="weather-section">
+        <h2>Weather Forecast</h2>
+        <div id="forecast-info">
+          <p>Loading...</p>
+        </div>
+      </div>
+
+      <div class="weather-section">
+        <h2>Air Pollution</h2>
+        <div id="air-pollution-info">
+          <p>Loading...</p>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <h2>Temperature Trends</h2>
+        <canvas id="weather-chart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Replace with your OpenWeather API key
+    const apiKey = 'bc438640405e0116c32119682e1d1001';
+    // Alor Setar coordinates
+    const lat = 6.1241;
+    const lon = 100.3677;
+
+    // URLs for API requests
+    const currentWeatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
+    const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
+    const airPollutionUrl = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${apiKey}`;
+
+    // Function to fetch current weather data
+    async function getCurrentWeather() {
+      try {
+        const response = await fetch(currentWeatherUrl);
+        const data = await response.json();
+        displayCurrentWeather(data);
+        // Perform calculations based on current weather data
+        const feelsLike = data.main.feels_like;
+        const windSpeed = data.wind.speed;
+        const windCategory = getWindCategory(windSpeed);
+        console.log(`Feels like: ${feelsLike}°C`);
+        console.log(`Wind category: ${windCategory}`);
+      } catch (error) {
+        console.error('Error fetching current weather data:', error);
+        document.getElementById('weather-info').innerHTML = '<p>Failed to fetch current weather data.</p>';
+      }
+    }
+
+    // Function to display current weather data
+    function displayCurrentWeather(data) {
+      const weatherInfo = `
+        <p>Temperature: ${data.main.temp} &deg;C</p>
+        <p>Humidity: ${data.main.humidity} %</p>
+        <p>Wind Speed: ${data.wind.speed} m/s</p>
+        <p>Wind Category: ${getWindCategory(data.wind.speed)}</p>
+        <p>Description: ${data.weather[0].description}</p>
+        <br>
+        <p>Last Updated: ${moment().format('YYYY-MM-DD HH:mm:ss')}</p>
+      `;
+      document.getElementById('weather-info').innerHTML = weatherInfo;
+    }
+
+    // Function to fetch weather forecast data
+    async function getWeatherForecast() {
+      try {
+        const response = await fetch(forecastUrl);
+        const data = await response.json();
+        displayWeatherForecast(data);
+        // Perform calculations based on forecast data
+        const maxTemps = data.list.map(item => item.main.temp_max);
+        const minTemps = data.list.map(item => item.main.temp_min);
+        console.log(`Max temperatures:`, maxTemps);
+        console.log(`Min temperatures:`, minTemps);
+
+        // Visualize temperature trends using Chart.js
+        const ctx = document.getElementById('weather-chart').getContext('2d');
+        new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: data.list.map(item => moment(item.dt_txt).format('MMM DD, HH:mm')),
+            datasets: [
+              {
+                label: 'Max Temperature (°C)',
+                data: maxTemps,
+                borderColor: 'rgb(255, 99, 132)',
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                fill: false,
+              },
+              {
+                label: 'Min Temperature (°C)',
+                data: minTemps,
+                borderColor: 'rgb(54, 162, 235)',
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                fill: false,
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true, // Adjusted to maintain aspect ratio
+            scales: {
+              x: {
+                ticks: {
+                  autoSkip: true,
+                  maxTicksLimit: 6 // Limit the number of x-axis ticks for compact display
+                }
+              }
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Error fetching weather forecast data:', error);
+        document.getElementById('forecast-info').innerHTML = '<p>Failed to fetch weather forecast data.</p>';
+      }
+    }
+
+    // Function to display weather forecast data
+    function displayWeatherForecast(data) {
+      // Group forecasts by date
+      const groupedForecasts = groupForecastsByDate(data.list);
+
+      let forecastInfo = '';
+      let totalTemp = 0;
+      let numDays = 0;
+
+      // Iterate through grouped forecasts
+      Object.keys(groupedForecasts).forEach(date => {
+        forecastInfo += `<h3>${moment(date).format('MMM DD')}</h3>`;
+        groupedForecasts[date].forEach(item => {
+          forecastInfo += `
+            <p>Time: ${moment(item.dt_txt).format('HH:mm')}</p>
+            <p>Temperature: ${item.main.temp} &deg;C</p>
+            <p>Humidity: ${item.main.humidity} %</p>
+            <p>Description: ${item.weather[0].description}</p>
+            <hr>
+          `;
+          totalTemp += item.main.temp;
+          numDays++;
+        });
+      });
+
+      // Calculate average temperature for 7 days
+      const averageTemp = totalTemp / numDays;
+
+      // Display average temperature
+      forecastInfo += `<h3>Average Temperature for Next 7 Days:</h3>`;
+      forecastInfo += `<p>${averageTemp.toFixed(2)} &deg;C</p>`;
+
+      document.getElementById('forecast-info').innerHTML = forecastInfo;
+    }
+
+    // Function to group forecasts by date
+    function groupForecastsByDate(forecasts) {
+      const grouped = {};
+      forecasts.forEach(item => {
+        const date = moment(item.dt_txt).format('YYYY-MM-DD');
+        if (!grouped[date]) {
+          grouped[date] = [];
+        }
+        grouped[date].push(item);
+      });
+      return grouped;
+    }
+
+    // Function to fetch air pollution data
+    async function getAirPollutionData() {
+      try {
+        const response = await fetch(airPollutionUrl);
+        const data = await response.json();
+        displayAirPollution(data);
+        // Perform calculations based on air pollution data
+        const pm25 = data.list[0].components.pm2_5;
+        const pm10 = data.list[0].components.pm10;
+        console.log(`PM2.5: ${pm25} µg/m³`);
+        console.log(`PM10: ${pm10} µg/m³`);
+      } catch (error) {
+        console.error('Error fetching air pollution data:', error);
+        document.getElementById('air-pollution-info').innerHTML = '<p>Failed to fetch air pollution data.</p>';
+      }
+    }
+
+    // Function to display air pollution data
+    function displayAirPollution(data) {
+      // Calculate Air Quality Index (AQI) based on PM2.5 or PM10
+      const pm25 = data.list[0].components.pm2_5;
+      const pm10 = data.list[0].components.pm10;
+      const aqiValue = calculateAQI(pm25 > pm10 ? pm25 : pm10);
+      const aqiStatus = getAQIStatus(aqiValue);
+
+      const pollutionInfo = `
+        <p>CO: ${data.list[0].components.co.toFixed(2)} µg/m³</p>
+        <p>NO: ${data.list[0].components.no.toFixed(2)} µg/m³</p>
+        <p>NO<sub>2</sub>: ${data.list[0].components.no2.toFixed(2)} µg/m³</p>
+        <p>O<sub>3</sub>: ${data.list[0].components.o3.toFixed(2)} µg/m³</p>
+        <p>SO<sub>2</sub>: ${data.list[0].components.so2.toFixed(2)} µg/m³</p>
+        <p>PM<sub>2.5</sub>: ${data.list[0].components.pm2_5.toFixed(2)} µg/m³</p>
+        <p>PM<sub>10</sub>: ${data.list[0].components.pm10.toFixed(2)} µg/m³</p>
+    <p>Air Quality Index (AQI): <strong>${aqiValue}</strong></p>
+    <p>Status: <strong>${aqiStatus}</strong></p>
+        <br>
+        <p>Last Updated: ${moment(data.list[0].dt * 1000).format('YYYY-MM-DD HH:mm:ss')}</p>
+      `;
+      document.getElementById('air-pollution-info').innerHTML = pollutionInfo;
+    }
+
+    // Function to calculate Air Quality Index (AQI)
+    function calculateAQI(concentration) {
+      // Define AQI breakpoints and corresponding AQI ranges
+      const breakpoints = [0, 12, 35.4, 55.4, 150.4, 250.4, 350.4, 500.4];
+      const ranges = [0, 50, 100, 150, 200, 300, 400, 500];
+
+      // Iterate through breakpoints to find the corresponding AQI range
+      for (let i = 0; i < breakpoints.length; i++) {
+        if (concentration <= breakpoints[i]) {
+          // Linear interpolation formula to calculate AQI
+          const AQI = (ranges[i] / breakpoints[i]) * concentration;
+          return Math.round(AQI);
+        }
+      }
+
+      return Math.round((ranges[ranges.length - 1] / breakpoints[breakpoints.length - 1]) * concentration);
+    }
+
+    // Function to get Air Quality Index (AQI) status
+    function getAQIStatus(aqiValue) {
+      if (aqiValue >= 0 && aqiValue <= 50) {
+        return 'Good';
+      } else if (aqiValue >= 51 && aqiValue <= 100) {
+        return 'Moderate';
+      } else if (aqiValue >= 101 && aqiValue <= 150) {
+        return 'Unhealthy for Sensitive Groups';
+      } else if (aqiValue >= 151 && aqiValue <= 200) {
+        return 'Unhealthy';
+      } else if (aqiValue >= 201 && aqiValue <= 300) {
+        return 'Very Unhealthy';
+      } else if (aqiValue > 300) {
+        return 'Hazardous';
+      } else {
+        return 'Unknown';
+      }
+    }
+
+    // Function to categorize wind speed
+    function getWindCategory(speed) {
+      if (speed < 0.3) {
+        return 'Calm';
+      } else if (speed >= 0.3 && speed < 1.6) {
+        return 'Light air';
+      } else if (speed >= 1.6 && speed < 3.4) {
+        return 'Light breeze';
+      } else if (speed >= 3.4 && speed < 5.5) {
+        return 'Gentle breeze';
+      } else if (speed >= 5.5 && speed < 8.0) {
+        return 'Moderate breeze';
+      } else if (speed >= 8.0 && speed < 10.8) {
+        return 'Fresh breeze';
+      } else if (speed >= 10.8 && speed < 13.9) {
+        return 'Strong breeze';
+      } else if (speed >= 13.9 && speed < 17.2) {
+        return 'High wind, moderate gale, near gale';
+      } else if (speed >= 17.2 && speed < 20.8) {
+        return 'Gale, fresh gale';
+      } else if (speed >= 20.8 && speed < 24.5) {
+        return 'Strong gale';
+      } else if (speed >= 24.5 && speed < 28.5) {
+        return 'Storm, whole gale';
+      } else if (speed >= 28.5 && speed < 32.7) {
+        return 'Violent storm';
+      } else if (speed >= 32.7) {
+        return 'Hurricane force';
+      } else {
+        return 'Unknown';
+      }
+    }
+
+    // Function to initialize the page
+    async function initializePage() {
+      await getCurrentWeather();
+      await getWeatherForecast();
+      await getAirPollutionData();
+    }
+
+    // Call initializePage function when the page is loaded
+    window.onload = initializePage;
+  </script>
+</body>
+</html>
